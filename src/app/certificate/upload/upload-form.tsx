@@ -41,23 +41,25 @@ export default function UploadForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="title">Certificate Title</Label>
-          <Input id="title" name="title" placeholder="e.g. Bachelor of Science in Computer Science" required />
+          <Label htmlFor="title" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Certificate Type</Label>
+          <Input id="title" name="title" placeholder="e.g. Bachelor of Science in Computer Science" required className="rounded-sm border-slate-300 dark:border-slate-700" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="studentId">Student ID (UUID)</Label>
-          <Input id="studentId" name="studentId" placeholder="UUID of the student" required />
+          <Label htmlFor="studentId" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Student ID (UUID)</Label>
+          <Input id="studentId" name="studentId" placeholder="UUID of the student" required className="rounded-sm border-slate-300 dark:border-slate-700 font-mono text-sm" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="file">Certificate PDF</Label>
-          <Input id="file" name="file" type="file" accept="application/pdf" required />
+          <Label htmlFor="file" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Official Document (PDF)</Label>
+          <div className="border border-dashed border-slate-300 dark:border-slate-700 p-4 rounded-sm bg-slate-50 dark:bg-slate-900/50">
+            <Input id="file" name="file" type="file" accept="application/pdf" required className="bg-white dark:bg-slate-950 rounded-sm border-slate-200 dark:border-slate-800" />
+          </div>
         </div>
       </CardContent>
-      <CardFooter>
-        <Button type="submit" disabled={isUploading}>
-          {isUploading ? 'Uploading...' : 'Upload Certificate'}
+      <CardFooter className="bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800 p-6">
+        <Button type="submit" disabled={isUploading} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white rounded-sm ml-auto">
+          {isUploading ? 'Securely Uploading...' : 'Issue Certificate'}
         </Button>
       </CardFooter>
     </form>

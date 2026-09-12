@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log audit
-    await logAudit(user.id, 'upload_certificate', 'certificate', certData.id, request.headers.get('x-forwarded-for') || request.ip)
+    await logAudit(user.id, 'CERTIFICATE_UPLOAD', 'certificate', certData.id, request.headers.get('x-forwarded-for') || request.ip)
 
     return NextResponse.json({ message: 'Certificate uploaded successfully', certificate: certData })
 

@@ -35,7 +35,9 @@ export async function updateSession(request: NextRequest) {
   
   if (user) {
     if (isAuthRoute) {
-      return NextResponse.redirect(new URL('/student/dashboard', request.url)) // Default redirect, but can be improved by fetching role
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      const role = profile?.role || 'student'
+      return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url))
     }
     
     // Check role-based access for protected routes
@@ -47,7 +49,7 @@ export async function updateSession(request: NextRequest) {
     if (isStudentRoute || isFacultyRoute || isAdminRoute || isCertUploadRoute) {
         // We need to fetch the profile to get the role
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-        const role = profile?.role
+        const role = profile?.role || 'student'
 
         if (isStudentRoute && role !== 'student') {
             return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url))
@@ -63,7 +65,7 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-  } else if (!isAuthRoute && request.nextUrl.pathname !== '/') {
+  } else if (!isAuthRoute && request.nextUrl.pathname !== '/' && !request.nextUrl.pathname.startsWith('/api')) {
     // Redirect unauthenticated users to login page
     return NextResponse.redirect(new URL('/login', request.url))
   }
