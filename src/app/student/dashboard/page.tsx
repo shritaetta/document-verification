@@ -1,5 +1,5 @@
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { createClient } from "@/utils/supabase/server"
+import { createClient, createAdminClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,11 +15,15 @@ export default async function StudentDashboard() {
 
   if (!user) redirect('/login')
 
+  const role = user.user_metadata?.role || 'student'
+  if (role !== 'student') redirect(`/${role}/dashboard`)
+
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
 
-  const { data: certificates } = await supabase
+  const adminClient = await createAdminClient()
+  const { data: certificates } = await adminClient
     .from('certificates')
-    .select('*')
+    .select('*, profiles(name, email)')
     .eq('student_id', user.id)
     .order('uploaded_at', { ascending: false })
 
@@ -29,7 +33,7 @@ export default async function StudentDashboard() {
   const rejectedCerts = certificates?.filter(c => c.status === 'rejected').length || 0
 
   return (
-    <DashboardLayout role={profile?.role || 'student'} userName={profile?.name || user.email}>
+    <DashboardLayout role={role} userName={profile?.name || user.email}>
       <div className="p-8 max-w-7xl mx-auto space-y-8">
         <PageHeader 
           title="My Certificates" 

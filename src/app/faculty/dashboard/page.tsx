@@ -1,5 +1,5 @@
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { createClient } from "@/utils/supabase/server"
+import { createClient, createAdminClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,15 +15,17 @@ export default async function FacultyDashboard() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-
-  if (profile?.role !== 'faculty' && profile?.role !== 'admin') {
-    redirect('/student/dashboard')
+  const role = user.user_metadata?.role || 'student'
+  if (role !== 'faculty' && role !== 'admin') {
+    redirect(`/${role}/dashboard`)
   }
 
-  const { data: certificates } = await supabase
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+
+  const adminClient = await createAdminClient()
+  const { data: certificates } = await adminClient
     .from('certificates')
-    .select('*, profiles(name)')
+    .select('*, profiles(name, email)')
     .order('uploaded_at', { ascending: false })
 
   const totalCerts = certificates?.length || 0
@@ -34,7 +36,7 @@ export default async function FacultyDashboard() {
   const recentCertificates = certificates?.slice(0, 10) || []
 
   return (
-    <DashboardLayout role={profile?.role} userName={profile?.name || user.email}>
+    <DashboardLayout role={role} userName={profile?.name || user.email}>
       <div className="p-8 max-w-7xl mx-auto space-y-8">
         <PageHeader 
           title="Faculty Dashboard" 
