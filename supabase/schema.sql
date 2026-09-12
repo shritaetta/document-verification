@@ -4,6 +4,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. Create profiles table (extends auth.users)
 CREATE TABLE public.profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+    email TEXT,
     name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('student', 'faculty', 'admin')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -40,8 +41,8 @@ CREATE POLICY "Admins can update profiles"
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, name, role)
-    VALUES (new.id, COALESCE(new.raw_user_meta_data->>'name', 'New User'), COALESCE(new.raw_user_meta_data->>'role', 'student'));
+    INSERT INTO public.profiles (id, email, name, role)
+    VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'name', 'New User'), COALESCE(new.raw_user_meta_data->>'role', 'student'));
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -58,7 +59,8 @@ CREATE TABLE public.certificates (
     title TEXT NOT NULL,
     storage_path TEXT NOT NULL,
     sha256_hash TEXT NOT NULL UNIQUE,
-    status TEXT NOT NULL DEFAULT 'uploaded' CHECK (status IN ('uploaded', 'verified', 'rejected')),
+    verification_id TEXT UNIQUE,
+    status TEXT NOT NULL DEFAULT 'uploaded' CHECK (status IN ('uploaded', 'verified', 'rejected', 'revoked')),
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     verified_at TIMESTAMP WITH TIME ZONE
 );

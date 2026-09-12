@@ -35,8 +35,7 @@ export async function updateSession(request: NextRequest) {
   
   if (user) {
     if (isAuthRoute) {
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-      const role = profile?.role || 'student'
+      const role = user.user_metadata?.role || 'student'
       return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url))
     }
     
@@ -47,9 +46,8 @@ export async function updateSession(request: NextRequest) {
     const isCertUploadRoute = request.nextUrl.pathname.startsWith('/certificate/upload')
 
     if (isStudentRoute || isFacultyRoute || isAdminRoute || isCertUploadRoute) {
-        // We need to fetch the profile to get the role
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-        const role = profile?.role || 'student'
+        // Use user metadata role if available, fallback to student
+        const role = user.user_metadata?.role || 'student'
 
         if (isStudentRoute && role !== 'student') {
             return NextResponse.redirect(new URL(`/${role}/dashboard`, request.url))
