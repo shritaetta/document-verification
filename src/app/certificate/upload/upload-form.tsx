@@ -31,6 +31,7 @@ export default function UploadForm() {
       }
 
       toast.success('Certificate uploaded successfully!')
+      router.refresh()
       router.push(`/certificate/view/${data.certificate.id}`)
     } catch (error: any) {
       toast.error(error.message)

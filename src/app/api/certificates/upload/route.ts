@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify role (only faculty and admin can upload)
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (!profile || (profile.role !== 'faculty' && profile.role !== 'admin')) {
+    const role = user.user_metadata?.role || 'student'
+    if (role !== 'faculty' && role !== 'admin') {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -44,9 +44,14 @@ export async function POST(request: NextRequest) {
     const fileName = `${crypto.randomUUID()}.${fileExtension}`
     const storagePath = `${studentId}/${fileName}`
 
-    // Upload to Supabase Storage using Admin Client (to bypass RLS if needed, or normal client if RLS allows)
-    // The RLS allows faculty/admins to upload. We can use the normal client.
-    const { error: uploadError } = await supabase.storage
+    // Generate unique verification ID (e.g. VER-X8K2M4P7)
+    const verificationId = `VER-${crypto.randomBytes(4).toString('hex').toUpperCase()}`
+
+    // Use admin client to bypass RLS since user's remote DB profiles trigger is outdated
+    const adminClient = await createAdminClient()
+
+    // Upload to Supabase Storage using Admin Client
+    const { error: uploadError } = await adminClient.storage
       .from('certificates')
       .upload(storagePath, buffer, {
         contentType: 'application/pdf',
@@ -54,26 +59,40 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError) {
+      console.error('Storage Upload Error:', uploadError)
       return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 })
     }
 
     // Insert record in database
-    const { data: certData, error: dbError } = await supabase.from('certificates').insert({
+    const { data: certData, error: dbError } = await adminClient.from('certificates').insert({
       student_id: studentId,
       title,
       storage_path: storagePath,
       sha256_hash: sha256Hash,
+      verification_id: verificationId,
       status: 'uploaded'
     }).select().single()
 
     if (dbError) {
+      console.error('DB Insert Error:', dbError)
       // Cleanup file if DB insert fails
-      await supabase.storage.from('certificates').remove([storagePath])
-      return NextResponse.json({ error: 'Failed to save certificate metadata' }, { status: 500 })
+      await adminClient.storage.from('certificates').remove([storagePath])
+      
+      if (dbError.code === '23505' && dbError.message.includes('certificates_sha256_hash_key')) {
+        return NextResponse.json({ error: 'This exact certificate document has already been uploaded. Duplicate uploads are prevented to ensure integrity.' }, { status: 400 })
+      }
+      
+      return NextResponse.json({ error: `Failed to save certificate metadata: ${dbError.message}` }, { status: 500 })
     }
 
     // Log audit
-    await logAudit(user.id, 'CERTIFICATE_UPLOAD', 'certificate', certData.id, request.headers.get('x-forwarded-for') || request.ip)
+    await logAudit(user.id, 'CERTIFICATE_UPLOAD', 'certificate', certData.id, request.headers.get('x-forwarded-for') || undefined)
+
+    // Revalidate the dashboards so the new certificate appears immediately
+    const { revalidatePath } = require('next/cache')
+    revalidatePath('/faculty/dashboard')
+    revalidatePath('/student/dashboard')
+    revalidatePath('/admin/dashboard')
 
     return NextResponse.json({ message: 'Certificate uploaded successfully', certificate: certData })
 

@@ -2,10 +2,15 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
+import { logAudit } from '@/utils/audit'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
+
+  const reqHeaders = await headers()
+  const ipAddress = reqHeaders.get('x-forwarded-for') || 'unknown'
 
   const data = {
     email: formData.get('email') as string,
@@ -15,23 +20,19 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
+    await logAudit(null, 'LOGIN_FAILED', 'user', undefined, ipAddress, true)
     redirect('/login?message=' + encodeURIComponent(error.message))
   }
 
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      const role = user.user_metadata?.role || 'student'
       
       // Log the login action
-      await supabase.from('audit_logs').insert({
-          actor_id: user.id,
-          action: 'USER_LOGIN',
-          entity_type: 'user',
-          entity_id: user.id,
-      })
+      await logAudit(user.id, 'LOGIN_SUCCESS', 'user', user.id, ipAddress, true)
 
-      if (profile?.role) {
-          redirect(`/${profile.role}/dashboard`)
+      if (role) {
+          redirect(`/${role}/dashboard`)
       } else {
           redirect('/login?message=Account error: Role not assigned')
       }
@@ -42,6 +43,8 @@ export async function login(formData: FormData) {
 
 export async function signup(formData: FormData) {
   const supabase = await createClient()
+  const reqHeaders = await headers()
+  const ipAddress = reqHeaders.get('x-forwarded-for') || 'unknown'
   
   const requestedRole = formData.get('role') as string || 'student'
   const inviteCode = formData.get('inviteCode') as string || ''
@@ -71,10 +74,15 @@ export async function signup(formData: FormData) {
     }
   }
 
-  const { error } = await supabase.auth.signUp(data)
+  const { data: authData, error } = await supabase.auth.signUp(data)
 
   if (error) {
     redirect(`/signup?type=${requestedRole}&message=${encodeURIComponent(error.message)}`)
+  }
+
+  if (authData?.user) {
+    const action = assignedRole === 'faculty' ? 'FACULTY_CREATED' : 'USER_CREATED'
+    await logAudit(authData.user.id, action, 'user', authData.user.id, ipAddress, true)
   }
 
   redirect('/login?message=Check your email to confirm your account')
@@ -82,15 +90,12 @@ export async function signup(formData: FormData) {
 
 export async function logout() {
   const supabase = await createClient()
+  const reqHeaders = await headers()
+  const ipAddress = reqHeaders.get('x-forwarded-for') || 'unknown'
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    await supabase.from('audit_logs').insert({
-        actor_id: user.id,
-        action: 'USER_LOGOUT',
-        entity_type: 'user',
-        entity_id: user.id,
-    })
+    await logAudit(user.id, 'LOGOUT', 'user', user.id, ipAddress, true)
   }
 
   await supabase.auth.signOut()

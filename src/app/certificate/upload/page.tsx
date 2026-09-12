@@ -11,20 +11,21 @@ export default async function UploadPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-
-  if (profile?.role !== 'faculty' && profile?.role !== 'admin') {
-    redirect('/student/dashboard')
+  const role = user.user_metadata?.role || 'student'
+  if (role !== 'faculty' && role !== 'admin') {
+    redirect(`/${role}/dashboard`)
   }
 
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+
   return (
-    <DashboardLayout role={profile?.role} userName={profile?.name || user.email}>
+    <DashboardLayout role={role} userName={profile?.name || user.email}>
       <div className="p-8 max-w-3xl mx-auto space-y-8">
         <PageHeader 
           title="Issue New Certificate" 
           description="Upload a PDF certificate and securely hash its contents to issue it to a student."
           breadcrumbs={[
-            { title: 'Dashboard', href: `/${profile?.role}/dashboard` },
+            { title: 'Dashboard', href: `/${role}/dashboard` },
             { title: 'Issue Certificate' }
           ]}
         />
