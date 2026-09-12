@@ -10,10 +10,10 @@ export default async function VerifyPage(props: { params: Promise<{ verification
 
   const getStatusConfig = () => {
     switch (result.status) {
-      case 'Authentic Certificate':
+      case 'Verified':
         return {
           icon: <CheckCircle2 className="h-12 w-12 text-emerald-600 dark:text-emerald-500 mb-4 mx-auto" />,
-          title: 'Authentic Certificate',
+          title: 'Verified',
           description: 'The certificate integrity has been successfully verified.',
           bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
           borderColor: 'border-emerald-200 dark:border-emerald-900',

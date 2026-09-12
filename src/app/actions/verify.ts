@@ -6,7 +6,7 @@ import crypto from 'crypto'
 import { headers } from 'next/headers'
 
 export type VerificationResult = {
-  status: 'Authentic Certificate' | 'Certificate Revoked' | 'Integrity Check Failed' | 'Certificate Not Found'
+  status: 'Verified' | 'Certificate Revoked' | 'Integrity Check Failed' | 'Certificate Not Found'
   certificate?: {
     title: string
     studentName: string
@@ -58,27 +58,29 @@ export async function verifyCertificateByVerificationId(verificationId: string):
     }
   }
 
-  // Recalculate SHA-256 hash
-  const arrayBuffer = await fileData.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
+  // Recalculate hash
+  const buffer = Buffer.from(await fileData.arrayBuffer())
   const hashSum = crypto.createHash('sha256')
   hashSum.update(buffer)
-  const calculatedHash = hashSum.digest('hex')
+  const currentHash = hashSum.digest('hex')
 
-  // Compare hashes
-  if (calculatedHash !== cert.sha256_hash) {
-    // Hash mismatch - Tampered
+  if (currentHash === cert.sha256_hash) {
+    await logAudit(null, 'CERTIFICATE_VERIFIED', 'certificate', cert.id, ipAddress, true)
+    
+    // Update status to verified if it was just uploaded
+    if (cert.status === 'uploaded') {
+      await supabase.from('certificates').update({ status: 'verified', verified_at: new Date().toISOString() }).eq('id', cert.id)
+    }
+    
+    return { 
+      status: 'Verified',
+      certificate: publicMetadata
+    }
+  } else {
     await logAudit(null, 'VERIFICATION_FAILED', 'certificate', cert.id, ipAddress, true)
-    return {
+    return { 
       status: 'Integrity Check Failed',
       certificate: publicMetadata
     }
-  }
-
-  // Authentic
-  await logAudit(null, 'CERTIFICATE_VERIFIED', 'certificate', cert.id, ipAddress, true)
-  return {
-    status: 'Authentic Certificate',
-    certificate: publicMetadata
   }
 }

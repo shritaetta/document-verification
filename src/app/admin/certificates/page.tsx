@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { RevokeButton } from "./revoke-button"
 
 export default async function AdminCertificatesPage() {
   const supabase = await createClient()
@@ -31,7 +32,7 @@ export default async function AdminCertificatesPage() {
       <div className="p-8 max-w-7xl mx-auto space-y-8">
         <PageHeader 
           title="Manage Certificates" 
-          description="View all certificates present in the system."
+          description="View, verify, and revoke system certificates."
           breadcrumbs={[
             { title: 'Dashboard', href: '/admin/dashboard' },
             { title: 'Certificates', href: '/admin/certificates' }
@@ -65,9 +66,14 @@ export default async function AdminCertificatesPage() {
                       <TableCell><StatusBadge status={cert.status} /></TableCell>
                       <TableCell className="text-slate-500 text-sm">{new Date(cert.uploaded_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/50">
-                          <Link href={`/certificate/view/${cert.id}`}>View Details</Link>
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          {cert.status !== 'revoked' && (
+                            <RevokeButton certificateId={cert.id} adminId={user.id} />
+                          )}
+                          <Button asChild variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/50">
+                            <Link href={`/certificate/view/${cert.id}`}>View Details</Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

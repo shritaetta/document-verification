@@ -62,7 +62,10 @@ CREATE TABLE public.certificates (
     verification_id TEXT UNIQUE,
     status TEXT NOT NULL DEFAULT 'uploaded' CHECK (status IN ('uploaded', 'verified', 'rejected', 'revoked')),
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    verified_at TIMESTAMP WITH TIME ZONE
+    verified_at TIMESTAMP WITH TIME ZONE,
+    revoked_at TIMESTAMP WITH TIME ZONE,
+    revoked_by UUID REFERENCES auth.users(id),
+    revocation_reason TEXT
 );
 
 -- Enable RLS on certificates
