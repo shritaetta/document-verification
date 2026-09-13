@@ -32,8 +32,26 @@ export async function POST(request: NextRequest) {
     }
 
     const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    let buffer = Buffer.from(arrayBuffer)
     
+    // Generate unique verification ID (e.g. VER-X8K2M4P7)
+    const verificationId = `VER-${crypto.randomBytes(4).toString('hex').toUpperCase()}`
+    
+    // Inject PDF Metadata
+    try {
+      const { PDFDocument } = await import('pdf-lib')
+      const pdfDoc = await PDFDocument.load(buffer)
+      pdfDoc.setTitle(title)
+      pdfDoc.setAuthor('Certificate Verification Platform')
+      pdfDoc.setSubject(`Verification ID: ${verificationId}`)
+      pdfDoc.setKeywords(['certificate', 'verification', verificationId, studentId])
+      pdfDoc.setCreator('Institution Issuance System')
+      const modifiedPdfBytes = await pdfDoc.save()
+      buffer = Buffer.from(modifiedPdfBytes)
+    } catch (err) {
+      console.warn('Failed to inject PDF metadata, proceeding with original file.', err)
+    }
+
     // Generate SHA-256 hash
     const hashSum = crypto.createHash('sha256')
     hashSum.update(buffer)
@@ -43,9 +61,6 @@ export async function POST(request: NextRequest) {
     const fileExtension = file.name.split('.').pop()
     const fileName = `${crypto.randomUUID()}.${fileExtension}`
     const storagePath = `${studentId}/${fileName}`
-
-    // Generate unique verification ID (e.g. VER-X8K2M4P7)
-    const verificationId = `VER-${crypto.randomBytes(4).toString('hex').toUpperCase()}`
 
     // Use admin client to bypass RLS since user's remote DB profiles trigger is outdated
     const adminClient = await createAdminClient()
