@@ -28,6 +28,15 @@ export default async function VerifyPage(props: { params: Promise<{ verification
           borderColor: 'border-amber-200 dark:border-amber-900',
           textColor: 'text-amber-900 dark:text-amber-100'
         }
+      case 'Rate Limited':
+        return {
+          icon: <Clock className="h-12 w-12 text-slate-600 dark:text-slate-500 mb-4 mx-auto" />,
+          title: 'Rate Limited',
+          description: 'Too many verification attempts from your IP address. Please try again later.',
+          bgColor: 'bg-slate-50 dark:bg-slate-900',
+          borderColor: 'border-slate-200 dark:border-slate-800',
+          textColor: 'text-slate-900 dark:text-slate-100'
+        }
       case 'Integrity Check Failed':
       default:
         return {

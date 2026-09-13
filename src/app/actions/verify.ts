@@ -4,9 +4,10 @@ import { createAdminClient } from '@/utils/supabase/server'
 import { logAudit } from '@/utils/audit'
 import crypto from 'crypto'
 import { headers } from 'next/headers'
+import { verifyRateLimit, checkRateLimit } from '@/utils/rate-limit'
 
 export type VerificationResult = {
-  status: 'Verified' | 'Certificate Revoked' | 'Integrity Check Failed' | 'Certificate Not Found'
+  status: 'Verified' | 'Certificate Revoked' | 'Integrity Check Failed' | 'Certificate Not Found' | 'Rate Limited'
   certificate?: {
     title: string
     studentName: string
@@ -18,6 +19,12 @@ export async function verifyCertificateByVerificationId(verificationId: string):
   const supabase = await createAdminClient()
   const reqHeaders = await headers()
   const ipAddress = reqHeaders.get('x-forwarded-for') || 'unknown'
+
+  // Rate Limiting
+  const { success } = await checkRateLimit(verifyRateLimit, `verify_${ipAddress}`)
+  if (!success) {
+    return { status: 'Rate Limited' }
+  }
 
   // Fetch certificate metadata
   const { data: cert, error: fetchError } = await supabase

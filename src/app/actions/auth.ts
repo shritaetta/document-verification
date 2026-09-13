@@ -5,12 +5,20 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { logAudit } from '@/utils/audit'
+import { authRateLimit, checkRateLimit } from '@/utils/rate-limit'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
 
   const reqHeaders = await headers()
   const ipAddress = reqHeaders.get('x-forwarded-for') || 'unknown'
+
+  // Rate Limiting
+  const { success } = await checkRateLimit(authRateLimit, `login_${ipAddress}`)
+  if (!success) {
+    await logAudit(null, 'LOGIN_FAILED', 'user', undefined, ipAddress, true)
+    redirect('/login?message=' + encodeURIComponent('Too many login attempts. Please try again later.'))
+  }
 
   const data = {
     email: formData.get('email') as string,
@@ -46,6 +54,12 @@ export async function signup(formData: FormData) {
   const reqHeaders = await headers()
   const ipAddress = reqHeaders.get('x-forwarded-for') || 'unknown'
   
+  // Rate Limiting
+  const { success } = await checkRateLimit(authRateLimit, `signup_${ipAddress}`)
+  if (!success) {
+    redirect('/signup?message=' + encodeURIComponent('Too many signup attempts. Please try again later.'))
+  }
+
   const requestedRole = formData.get('role') as string || 'student'
   const inviteCode = formData.get('inviteCode') as string || ''
   
