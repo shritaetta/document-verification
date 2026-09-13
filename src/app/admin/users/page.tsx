@@ -5,6 +5,10 @@ import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
+import { SuspendButton } from "./suspend-button"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+
 export default async function AdminUsersPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,8 +27,16 @@ export default async function AdminUsersPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
-  const facultyUsers = profiles?.filter(p => p.role === 'faculty') || []
-  const studentUsers = profiles?.filter(p => p.role === 'student') || []
+  // Fetch auth users to see who is banned
+  const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers()
+
+  const profilesWithBanStatus = profiles?.map(p => {
+    const authUser = authUsers.find(u => u.id === p.id)
+    return { ...p, isBanned: !!authUser?.banned_until }
+  }) || []
+
+  const facultyUsers = profilesWithBanStatus.filter(p => p.role === 'faculty')
+  const studentUsers = profilesWithBanStatus.filter(p => p.role === 'student')
 
   return (
     <DashboardLayout role={role} userName={profile?.name || user.email}>
@@ -54,8 +66,9 @@ export default async function AdminUsersPage() {
                     <TableRow className="border-slate-100 dark:border-slate-800">
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Joined</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -64,9 +77,21 @@ export default async function AdminUsersPage() {
                         <TableCell className="font-medium">{faculty.name}</TableCell>
                         <TableCell className="text-slate-500">{faculty.email || 'N/A'}</TableCell>
                         <TableCell>
-                          <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">Faculty</span>
+                          {faculty.isBanned ? (
+                            <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">Suspended</span>
+                          ) : (
+                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">Active</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-slate-500 text-sm">{new Date(faculty.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                             <Button asChild variant="ghost" size="sm" className="h-8 text-blue-600">
+                               <Link href={`/admin/audit?actor=${faculty.id}`}>View Activity</Link>
+                             </Button>
+                             {!faculty.isBanned && <SuspendButton userId={faculty.id} />}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
