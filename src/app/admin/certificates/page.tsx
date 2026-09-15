@@ -8,8 +8,11 @@ import { StatusBadge } from "@/components/ui/status-badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { RevokeButton } from "./revoke-button"
+import { ReviewButtons } from "./review-buttons"
+import { CertificatesFilter } from "./certificates-filter"
 
-export default async function AdminCertificatesPage() {
+export default async function AdminCertificatesPage(props: { searchParams: Promise<{ q?: string, status?: string, days?: string }> }) {
+  const searchParams = await props.searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -21,24 +24,43 @@ export default async function AdminCertificatesPage() {
   const adminClient = await createAdminClient()
   const { data: profile } = await adminClient.from('profiles').select('*').eq('id', user.id).single()
 
-  // Fetch all certificates
-  const { data: certificates } = await adminClient
+  let query = adminClient
     .from('certificates')
-    .select('*, profiles(name)')
+    .select('*, profiles!inner(name)')
     .order('uploaded_at', { ascending: false })
+
+  if (searchParams.status && searchParams.status !== 'all') {
+    query = query.eq('status', searchParams.status)
+  }
+
+  if (searchParams.days && searchParams.days !== 'all') {
+    const days = parseInt(searchParams.days, 10)
+    const dateLimit = new Date()
+    dateLimit.setDate(dateLimit.getDate() - days)
+    query = query.gte('uploaded_at', dateLimit.toISOString())
+  }
+
+  if (searchParams.q) {
+    const searchTerm = `%${searchParams.q}%`
+    query = query.or(`verification_id.ilike.${searchTerm},profiles.name.ilike.${searchTerm}`)
+  }
+
+  const { data: certificates } = await query
 
   return (
     <DashboardLayout role={role} userName={profile?.name || user.email}>
       <div className="p-8 max-w-7xl mx-auto space-y-8">
         <PageHeader 
           title="Manage Certificates" 
-          description="View, verify, and revoke system certificates."
+          description="View, approve, and revoke system certificates."
           breadcrumbs={[
             { title: 'Dashboard', href: '/admin/dashboard' },
             { title: 'Certificates', href: '/admin/certificates' }
           ]}
         />
         
+        <CertificatesFilter />
+
         <Card className="rounded-sm shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader>
             <CardTitle>All Certificates</CardTitle>
@@ -46,7 +68,7 @@ export default async function AdminCertificatesPage() {
           </CardHeader>
           <CardContent className="p-0">
             {!certificates || certificates.length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500">No certificates found in the system.</div>
+              <div className="p-8 text-center text-sm text-slate-500">No certificates found matching your criteria.</div>
             ) : (
               <Table>
                 <TableHeader>
@@ -66,8 +88,11 @@ export default async function AdminCertificatesPage() {
                       <TableCell><StatusBadge status={cert.status} /></TableCell>
                       <TableCell className="text-slate-500 text-sm">{new Date(cert.uploaded_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {cert.status !== 'revoked' && (
+                        <div className="flex justify-end gap-2 items-center">
+                          {cert.status === 'uploaded' && (
+                            <ReviewButtons certificateId={cert.id} />
+                          )}
+                          {cert.status === 'verified' && (
                             <RevokeButton certificateId={cert.id} adminId={user.id} />
                           )}
                           <Button asChild variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/50">
