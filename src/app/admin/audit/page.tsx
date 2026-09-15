@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
-export default async function AdminAuditPage(props: { searchParams: Promise<{ action?: string, actor?: string }> }) {
+export default async function AdminAuditPage(props: { searchParams: Promise<{ action?: string, actor?: string, days?: string }> }) {
   const searchParams = await props.searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -32,10 +32,24 @@ export default async function AdminAuditPage(props: { searchParams: Promise<{ ac
   if (searchParams.actor) {
     query = query.eq('actor_id', searchParams.actor)
   }
+  if (searchParams.days && searchParams.days !== 'all') {
+    const days = parseInt(searchParams.days, 10)
+    const dateLimit = new Date()
+    dateLimit.setDate(dateLimit.getDate() - days)
+    query = query.gte('created_at', dateLimit.toISOString())
+  }
 
   const { data: logs } = await query
 
   const actions = ['LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'CERTIFICATE_UPLOADED', 'CERTIFICATE_VERIFIED', 'VERIFICATION_FAILED']
+  const dateOptions = [
+    { label: 'All Time', value: 'all' },
+    { label: 'Today', value: '1' },
+    { label: 'Last 7 Days', value: '7' },
+    { label: 'Last 30 Days', value: '30' }
+  ]
+
+  const currentDays = searchParams.days || 'all'
 
   return (
     <DashboardLayout role={role} userName={profile?.name || user.email}>
@@ -49,20 +63,29 @@ export default async function AdminAuditPage(props: { searchParams: Promise<{ ac
           ]}
         />
         
-        <div className="flex gap-2 mb-4 flex-wrap">
-          <Button asChild variant={!searchParams.action ? 'default' : 'outline'} size="sm">
-            <Link href={`/admin/audit${searchParams.actor ? `?actor=${searchParams.actor}` : ''}`}>All Actions</Link>
-          </Button>
-          {actions.map(action => (
-            <Button key={action} asChild variant={searchParams.action === action ? 'default' : 'outline'} size="sm">
-              <Link href={`/admin/audit?action=${action}${searchParams.actor ? `&actor=${searchParams.actor}` : ''}`}>{action}</Link>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+          <div className="flex gap-2 flex-wrap">
+            <Button asChild variant={!searchParams.action ? 'default' : 'outline'} size="sm">
+              <Link href={`/admin/audit?days=${currentDays}${searchParams.actor ? `&actor=${searchParams.actor}` : ''}`}>All Actions</Link>
             </Button>
-          ))}
-          {searchParams.actor && (
-             <Button asChild variant="destructive" size="sm">
-               <Link href={`/admin/audit${searchParams.action ? `?action=${searchParams.action}` : ''}`}>Clear Actor Filter</Link>
-             </Button>
-          )}
+            {actions.map(action => (
+              <Button key={action} asChild variant={searchParams.action === action ? 'default' : 'outline'} size="sm">
+                <Link href={`/admin/audit?action=${action}&days=${currentDays}${searchParams.actor ? `&actor=${searchParams.actor}` : ''}`}>{action}</Link>
+              </Button>
+            ))}
+            {searchParams.actor && (
+               <Button asChild variant="destructive" size="sm">
+                 <Link href={`/admin/audit?days=${currentDays}${searchParams.action ? `&action=${searchParams.action}` : ''}`}>Clear Actor Filter</Link>
+               </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {dateOptions.map(opt => (
+              <Button key={opt.value} asChild variant={currentDays === opt.value ? 'default' : 'outline'} size="sm">
+                <Link href={`/admin/audit?days=${opt.value}${searchParams.action ? `&action=${searchParams.action}` : ''}${searchParams.actor ? `&actor=${searchParams.actor}` : ''}`}>{opt.label}</Link>
+              </Button>
+            ))}
+          </div>
         </div>
 
         <Card className="rounded-sm shadow-sm border-slate-200 dark:border-slate-800">
