@@ -1,6 +1,16 @@
 # 🎓 Secure Certificate Verification Platform
 
-A production-grade Next.js application for issuing, managing, and publicly verifying academic certificates. The system is built around a **security-first architecture**: every certificate is cryptographically hashed at issuance, every sensitive action is audited, and every route is gated by role-based access control enforced at multiple layers.
+![Next.js](https://img.shields.io/badge/Next.js_16-000?style=flat&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white)
+![Postgres](https://img.shields.io/badge/PostgreSQL-336791?style=flat&logo=postgresql&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
+![shadcn/ui](https://img.shields.io/badge/shadcn/ui-000?style=flat&logo=shadcnui&logoColor=white)
+![Upstash Redis](https://img.shields.io/badge/Upstash_Redis-00E9FF?style=flat&logo=redis&logoColor=black)
+![PDF.js](https://img.shields.io/badge/PDF--lib-F87320?style=flat)
+![Node.js](https://img.shields.io/badge/Node.js_20+-339933?style=flat&logo=nodedotjs&logoColor=white)
+
+A production-grade Next.js application for issuing, managing, and publicly verifying academic certificates. The system is built around a **security-first architecture**: every certificate is cryptographically verified and immutably logged.
 
 ---
 
@@ -10,7 +20,7 @@ Security is not an add-on in this project — it is the core design principle. T
 
 ### 1. Cryptographic Integrity Verification
 - Every uploaded certificate (PDF) is hashed using **SHA-256** at upload time. The hash is stored alongside the certificate metadata.
-- On verification, the system **re-downloads the stored file and recomputes the hash**, comparing it against the original. Any mismatch is reported as an **Integrity Check Failed** result — this detects tampering, corruption, or substitution of the underlying document, not just database metadata.
+- On verification, the system **re-downloads the stored file and recomputes the hash**, comparing it against the original. Any mismatch is reported as an **Integrity Check Failed** result — this detects tampering or file corruption.
 - Duplicate-hash detection prevents the same certificate file from being issued twice (`sha256_hash` is a unique constraint).
 - PDF metadata (title, verification ID, issuer) is embedded into the document itself via `pdf-lib`, adding a secondary, harder-to-strip layer of provenance.
 
@@ -18,7 +28,7 @@ Security is not an add-on in this project — it is the core design principle. T
 Three roles — **student**, **faculty**, and **admin** — are enforced at three independent layers so that a failure in one layer does not expose data:
 - **Middleware** (`src/middleware.ts` / `utils/supabase/middleware.ts`): redirects unauthenticated users and blocks cross-role route access before a page ever renders.
 - **Server components**: every protected page re-validates the authenticated user and role server-side (never trusts the client).
-- **Database (Postgres Row-Level Security)**: Supabase RLS policies restrict `SELECT`/`INSERT`/`UPDATE` on `profiles`, `certificates`, and `audit_logs` based on the caller's role, providing defense-in-depth even if application-layer checks are bypassed.
+- **Database (Postgres Row-Level Security)**: Supabase RLS policies restrict `SELECT`/`INSERT`/`UPDATE` on `profiles`, `certificates`, and `audit_logs` based on the caller's role, providing defense-in-depth.
 
 ### 3. Controlled Account Provisioning
 - Public self-registration only grants the **student** role by default.
@@ -50,17 +60,17 @@ Admins have access to a dedicated **Audit Log** view and **Reports** dashboard w
 
 ### 8. Privilege Separation Between Clients
 - A restricted **anon client** (`utils/supabase/client.ts`, `server.ts`) is used for user-scoped operations, subject to RLS.
-- A separate **service-role admin client** (`createAdminClient`) is used only in trusted server-side contexts (API routes, server actions) that require elevated database access — never exposed to the browser.
+- A separate **service-role admin client** (`createAdminClient`) is used only in trusted server-side contexts (API routes, server actions) that require elevated database access — never exposed to the client.
 
 ### 9. Secure Document Delivery
 - Certificate files are stored in a **private** Supabase Storage bucket (not publicly accessible).
 - Access is only granted via **short-lived signed URLs** (60-second expiry) generated server-side at view time — documents are never served through permanent public links.
 
 ### 10. Public Verification Without Data Leakage
-- The public `/verify/[verification_id]` page exposes only the minimum necessary information (student name, certificate title, issuer, status) — internal fields such as storage paths, hashes, and revocation reasons are never rendered publicly.
+- The public `/verify/[verification_id]` page exposes only the minimum necessary information (student name, certificate title, issuer, status) — internal fields such as storage paths, hashes, and revocation reasons remain hidden.
 
 ### 11. Security Monitoring Dashboards
-- A dedicated **Admin Security Center** surfaces live system health: encryption status, rate-limiting status, audit logging status, and a feed of recent failed login attempts — giving administrators visibility into the platform's security posture at a glance.
+- A dedicated **Admin Security Center** surfaces live system health: encryption status, rate-limiting status, audit logging status, and a feed of recent failed login attempts — giving administrators visibility and early warning of attacks.
 
 ---
 
