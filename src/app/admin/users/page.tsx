@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 import { SuspendButton } from "./suspend-button"
+import { InviteCodeGenerator } from "./invite-code-generator"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -53,9 +54,12 @@ export default async function AdminUsersPage() {
         <div className="space-y-8">
           {/* Faculty Section */}
           <Card className="rounded-sm shadow-sm border-slate-200 dark:border-slate-800">
-            <CardHeader>
-              <CardTitle>Faculty Users</CardTitle>
-              <CardDescription>All faculty members registered in the system.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Faculty Users</CardTitle>
+                <CardDescription>All faculty members registered in the system.</CardDescription>
+              </div>
+              <InviteCodeGenerator />
             </CardHeader>
             <CardContent>
               {facultyUsers.length === 0 ? (
