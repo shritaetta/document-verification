@@ -33,3 +33,48 @@ export async function revokeCertificate(
     return { error: 'An unexpected error occurred' }
   }
 }
+
+export async function approveCertificate(certificateId: string) {
+  try {
+    const adminClient = await createAdminClient()
+    
+    const { error } = await adminClient
+      .from('certificates')
+      .update({ 
+        status: 'verified',
+        verified_at: new Date().toISOString()
+      })
+      .eq('id', certificateId)
+
+    if (error) {
+      return { error: 'Failed to approve certificate' }
+    }
+
+    revalidatePath('/admin/certificates')
+    return { success: true }
+  } catch (err) {
+    return { error: 'An unexpected error occurred' }
+  }
+}
+
+export async function rejectCertificate(certificateId: string) {
+  try {
+    const adminClient = await createAdminClient()
+    
+    const { error } = await adminClient
+      .from('certificates')
+      .update({ 
+        status: 'rejected'
+      })
+      .eq('id', certificateId)
+
+    if (error) {
+      return { error: 'Failed to reject certificate' }
+    }
+
+    revalidatePath('/admin/certificates')
+    return { success: true }
+  } catch (err) {
+    return { error: 'An unexpected error occurred' }
+  }
+}
